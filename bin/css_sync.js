@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
-import { watch } from "node:fs";
+import { watch, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "./css_parser.js";
@@ -24,7 +24,17 @@ const FLAGS = {
 	dir: dir_idx > -1 && args[dir_idx + 1] ? args[dir_idx + 1] : "src"
 };
 
-const TARGET_DIR = path.resolve(CWD, FLAGS.dir);
+function find_root(start) {
+	let curr = start;
+	while (curr !== path.parse(curr).root) {
+		if (existsSync(path.join(curr, "package.json"))) return curr;
+		curr = path.dirname(curr);
+	}
+	return start;
+}
+
+const ROOT_DIR = find_root(CWD);
+const TARGET_DIR = path.basename(CWD) === FLAGS.dir ? CWD : path.resolve(ROOT_DIR, FLAGS.dir);
 let SORT_SPEC = [];
 
 // ------------------------------------------------------------------

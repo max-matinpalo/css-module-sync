@@ -6,10 +6,10 @@ export default [
 		"keywords": [
 			"position",
 			"inset",
-			"top",
-			"right",
-			"bottom",
 			"left",
+			"right",
+			"top",
+			"bottom",
 			"z-index",
 
 		]

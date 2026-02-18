@@ -1,48 +1,37 @@
+const BLOCK_MIN_DECLS = 7;
+
 /**
  * css_formatter.js
  * Converts AST back to CSS string with category-based sorting.
  */
 
 export function format(root, sort_spec = []) {
-	// 1. Create a Case-Insensitive Set for reliable matching
 	const category_set = new Set(sort_spec.map(s => s.category.toUpperCase()));
+	category_set.add("ELSE");
 
 	const is_cat = (str) => {
 		if (!str) return false;
 		const clean = str.replace(/^\/\*+|\*+\/$/g, "").trim();
-
-		// Match against spec (Case Insensitive)
 		if (category_set.has(clean.toUpperCase())) return true;
-
-		// 2. HEURISTIC FIX: Treat any "ALL CAPS" comment as a category header.
-		// This ensures "Ghost" headers (like OLD_CATEGORY) are recognized 
-		// as headers and removed if they are empty.
-		// Regex: Uppercase letters, underscores, or spaces only.
 		return /^[A-Z_\s]+$/.test(clean);
 	};
 
-	function process(node, depth) {
+	function process(node, depth, is_last = false) {
 		const indent = "\t".repeat(depth);
 		let out = "";
 
-		// 1. Comments (Attached to the block itself)
 		if (node.comments?.length) {
 			for (const c of node.comments) {
-				if (c.trim() === "/* Auto-generated */") continue;
-				if (is_cat(c)) continue; // Strip ghost headers attached to block
+				if (c.trim() === "/* Auto-generated */" || is_cat(c)) continue;
 				out += `${indent}${c}\n`;
 			}
 		}
 
-		// 2. Leaf (Properties)
 		if (node.type === "leaf" && node.content) {
-			const clean = node.content.replace(/;+$/, "").trim();
-			out += `${indent}${clean};\n`;
+			out += `${indent}${node.content.replace(/;+$/, "").trim()};\n`;
 		} else if (node.type === "block") {
-			// 3. Block
 			const head = node.selector ? `${indent}${node.selector} {\n` : "";
 			const tail = node.selector ? `${indent}}\n` : "";
-
 			out += head;
 
 			if (node.children) {
@@ -50,7 +39,6 @@ export function format(root, sort_spec = []) {
 				const others = [];
 
 				for (const child of node.children) {
-					// Detect and skip existing headers (so we can regenerate them sorted)
 					if (child.type === "comment" && is_cat(child.content)) continue;
 					if (child.type === "header") continue;
 
@@ -62,60 +50,79 @@ export function format(root, sort_spec = []) {
 					(is_decl ? decls : others).push(child);
 				}
 
-				if (node.selector && decls.length === 0) out += "\n";
+				if (node.selector && decls.length === 0 && others.length > 0) out += "\n";
 
 				if (decls.length) {
 					const grouped = {};
+					const else_idx = sort_spec.length;
 
 					for (const decl of decls) {
 						const prop = decl.content.split(":")[0].trim();
-
-						// Find index in sort_spec
-						const cat_idx = sort_spec.findIndex(s => s.keywords.some(k =>
-							k.endsWith("...") ? prop.startsWith(k.slice(0, -3)) : prop === k
-						));
-
-						// If not found in spec, push to end (sort_spec.length)
-						const key = cat_idx === -1 ? sort_spec.length : cat_idx;
+						const cat_idx = sort_spec.findIndex(s => s.keywords.some(k => {
+							const clean_k = k.replace(/\.+$/, "");
+							return k.includes("...") ? (prop === clean_k || prop.startsWith(clean_k + "-")) : prop === k;
+						}));
+						const key = cat_idx === -1 ? else_idx : cat_idx;
 						(grouped[key] ||= []).push(decl);
 					}
 
-					const processed = [];
+					Object.keys(grouped).forEach(idx => {
+						const cat = sort_spec[idx];
+						grouped[idx].sort((a, b) => {
+							const prop_a = a.content.split(":")[0].trim();
+							const prop_b = b.content.split(":")[0].trim();
+							if (!cat) return prop_a.localeCompare(prop_b);
 
-					// Sort keys numerically to ensure spec order (0, 1, 2...)
-					// If sort_spec is empty, this simply groups everything into key '0'
-					Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(idx => {
-						const category = sort_spec[idx];
-
-						// Only add header if category exists in spec
-						if (category) {
-							processed.push({
-								type: "header",
-								content: `\n${indent}\t/* ${category.category} */`,
+							const find = (p) => cat.keywords.findIndex(k => {
+								const clean_k = k.replace(/\.+$/, "");
+								return k.includes("...") ? (p === clean_k || p.startsWith(clean_k + "-")) : p === k;
 							});
-						}
+							const i_a = find(prop_a);
+							const i_b = find(prop_b);
 
-						// Sort properties alphabetically within their group
-						grouped[idx].sort((a, b) => a.content.localeCompare(b.content));
-						processed.push(...grouped[idx]);
+							if (i_a !== i_b) return i_a - i_b;
+							return prop_a.localeCompare(prop_b);
+						});
 					});
 
-					// Append non-declaration children (other comments, nested blocks)
-					for (const child of [...processed, ...others]) {
+					const processed = [];
+					const sorted_keys = Object.keys(grouped).sort((a, b) => Number(a) - Number(b));
+					const skip_all_spacers = decls.length < BLOCK_MIN_DECLS;
+					let accumulated_decls = 0;
+
+					sorted_keys.forEach((idx, k_idx) => {
+						const items = grouped[idx];
+						if (k_idx > 0 && !skip_all_spacers && items.length >= 2 && accumulated_decls >= 2) {
+							processed.push({ type: "header", content: "" });
+						}
+						processed.push(...items);
+						accumulated_decls += items.length;
+					});
+
+					const all_children = [...processed, ...others];
+					all_children.forEach((child, i) => {
+						const is_child_last = i === all_children.length - 1;
 						if (child.type === "header") out += `${child.content}\n`;
-						else out += process(child, node.selector ? depth + 1 : depth);
-					}
+						else out += process(child, node.selector ? depth + 1 : depth, is_child_last);
+					});
 				} else {
-					for (const child of others) out += process(child, node.selector ? depth + 1 : depth);
+					others.forEach((child, i) => {
+						const is_child_last = i === others.length - 1;
+						out += process(child, node.selector ? depth + 1 : depth, is_child_last);
+					});
 				}
 			}
 
 			out += tail;
-			if (node.selector) out += "\n";
+			// Only add empty line between top-level blocks
+			if (node.selector && depth === 0 && !is_last) out += "\n";
 		}
 
 		return out;
 	}
 
-	return process(root, 0);
+	const root_children = root.children || [];
+	return root_children.map((child, i) =>
+		process(child, 0, i === root_children.length - 1)
+	).join("");
 }

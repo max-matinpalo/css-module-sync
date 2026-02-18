@@ -1,7 +1,7 @@
 {
 	"name": "css-module-sync",
-	"version": "0.1.30",
-	"description": "Auto writes css classes for react components",
+	"version": "0.1.31",
+	"description": "Auto sync css module classes with react components",
 	"author": "Max Matinpalo",
 	"type": "module",
 	"license": "MIT",
@@ -15,5 +15,6 @@
 	},
 	"bin": {
 		"css-sync": "./bin/css_sync.js"
-	}
+	},
+	"files": "src"
 }
