@@ -1,6 +1,6 @@
 
-# CSS-MODULE-SYNC
-Speed up react development by auto sync css module classes with react components. 2
+# css-module-sync
+Auto sync css module classes with react components.
 
 
 ### Install
