@@ -1,6 +1,6 @@
 {
 	"name": "css-module-sync",
-	"version": "0.1.31",
+	"version": "0.1.32",
 	"description": "Auto sync css module classes with react components",
 	"author": "Max Matinpalo",
 	"type": "module",
@@ -14,7 +14,7 @@
 		"url": "https://github.com/max-matinpalo/css-module-sync/issues"
 	},
 	"bin": {
-		"css-sync": "./bin/css_sync.js"
+		"css-sync": "./src/css_sync.js"
 	},
 	"files": "src"
 }
