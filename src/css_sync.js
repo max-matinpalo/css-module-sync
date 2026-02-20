@@ -109,23 +109,32 @@ async function format_css_only(css_path) {
 }
 
 async function sync_file(tsx_path) {
+	let tsx;
+	try { tsx = await fs.readFile(tsx_path, "utf-8"); } catch { return; }
+
+	const used_ordered = extract_classes(tsx);
+	const dir = path.dirname(tsx_path);
+	const name = path.basename(tsx_path, path.extname(tsx_path));
+	const module_path = path.join(dir, `${name}.module.css`);
+	const css_exists = existsSync(module_path);
+
+	if (FLAGS.gen && used_ordered.length === 0 && !css_exists) return;
+
 	const css_path = await resolve_css_path(tsx_path);
 	if (!css_path) return;
-	let tsx, css;
-	try {
-		[tsx, css] = await Promise.all([fs.readFile(tsx_path, "utf-8"), fs.readFile(css_path, "utf-8")]);
-	} catch (e) { return; }
-	if (FLAGS.gen) {
+
+	let css;
+	try { css = await fs.readFile(css_path, "utf-8"); } catch { return; }
+
+	if (FLAGS.gen && used_ordered.length > 0) {
 		const target = `import styles from "./${path.basename(css_path)}";`;
-		let found = false;
-		const next = tsx.replace(/^import\s+styles\s+from\s+["'].+["'];?\n?/gm, (m) => {
-			if (m.includes(`./${path.basename(css_path)}`)) { found = true; return m; }
-			return "";
-		});
-		const final = found ? next : `${target}\n${next}`;
+		const next = tsx.replace(/^import\s+styles\s+from\s+["'][^"']+["'];?\s*\n?/gm, "");
+		const m = next.match(/^(\s*(?:(?:\/\*.*?\*\/)\s*|\/\/.*\s*)*)(["']use client["'];?\s*\n)?/s);
+		const i = m ? m[0].length : 0;
+		const final = `${next.slice(0, i)}${target}\n${next.slice(i)}`;
 		if (final !== tsx) await fs.writeFile(tsx_path, tsx = final);
 	}
-	const used_ordered = extract_classes(tsx);
+
 	let root;
 	try { root = parse(css); } catch { return; }
 	const class_to_idxs = new Map();

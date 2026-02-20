@@ -1,4 +1,4 @@
-const BLOCK_MIN_DECLS = 7;
+const BLOCK_MIN_DECLS = 5;
 
 /**
  * css_formatter.js

@@ -39,38 +39,41 @@
 			"height",
 			"min-height",
 			"max-height",
-			"aspect-ratio",
 			"margin...",
 			"padding...",
-			"border..."
+			"border...",
+			"aspect-ratio"
 		]
 	},
 	{
-		"category": "COLOR",
+		"category": "SCROLL",
+		"keywords": [
+			"overflow...",
+			"scroll...",
+			"scrollbar...",
+			"overscroll-behavior...",
+			"-webkit-overflow-scrolling"
+		]
+	},
+	{
+		"category": "VISUALS",
 		"keywords": [
 			"color",
 			"background...",
 			"opacity",
-			"box-shadow"
+			"box-shadow",
+			"backdrop-filter",
+			"-webkit-backdrop-filter"
 		]
 	},
 	{
 		"category": "TYPO",
 		"keywords": [
-			"font",
-			"font-family",
-			"font-size",
-			"font-weight",
-			"font-style",
 			"font...",
-			"font-stretch",
 			"line-height",
+			"text...",
 			"letter-spacing",
 			"word-spacing",
-			"text-align",
-			"text-transform",
-			"text-decoration....",
-			"text-underline-offset",
 			"white-space"
 		]
 	},
