@@ -2,7 +2,6 @@
 export function parse(input) {
 	let i = 0;
 	const n = input.length;
-
 	const root = { type: "block", selector: null, children: [], comments: [] };
 	let pending = [];
 
@@ -19,15 +18,21 @@ export function parse(input) {
 	};
 
 	const read_until = stops => {
-		let out = "", q = null, esc = false;
+		let out = "", q = null, esc = false, cmt = false, p = 0;
 		while (i < n) {
 			const c = input[i];
 			if (esc) { out += c; esc = false; i++; continue; }
 			if (c === "\\") { out += c; esc = true; i++; continue; }
+			if (!cmt && !q && c === "/" && input[i + 1] === "*") { cmt = true; out += "/*"; i += 2; continue; }
+			if (cmt && c === "*" && input[i + 1] === "/") { cmt = false; out += "*/"; i += 2; continue; }
+			if (cmt) { out += c; i++; continue; }
 			if (q) { if (c === q) q = null; out += c; i++; continue; }
 			if (c === "'" || c === `"`) { q = c; out += c; i++; continue; }
-			if (stops.includes(c)) break;
-			out += c; i++;
+			if (c === "(") p++;
+			if (c === ")") if (p > 0) p--;
+			if (p === 0 && stops.includes(c)) break;
+			out += c;
+			i++;
 		}
 		return out;
 	};
@@ -35,7 +40,7 @@ export function parse(input) {
 	const parse_block = selector => {
 		const node = { type: "block", selector, children: [], comments: pending };
 		pending = [];
-		i++; // skip '{'
+		i++;
 		while (i < n) {
 			skip_ws();
 			const cmt = read_comment();

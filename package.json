@@ -1,6 +1,6 @@
 {
 	"name": "css-module-sync",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Auto sync css module classes with react components",
 	"author": "Max Matinpalo",
 	"type": "module",
