@@ -128,11 +128,13 @@ async function sync_file(tsx_path) {
 
 	if (FLAGS.gen && used_ordered.length > 0) {
 		const target = `import styles from "./${path.basename(css_path)}";`;
-		const next = tsx.replace(/^import\s+styles\s+from\s+["'][^"']+["'];?\s*\n?/gm, "");
-		const m = next.match(/^(\s*(?:(?:\/\*.*?\*\/)\s*|\/\/.*\s*)*)(["']use client["'];?\s*\n)?/s);
-		const i = m ? m[0].length : 0;
-		const final = `${next.slice(0, i)}${target}\n${next.slice(i)}`;
-		if (final !== tsx) await fs.writeFile(tsx_path, tsx = final);
+		if (!tsx.includes(target)) {
+			const next = tsx.replace(/^import\s+styles\s+from\s+["'][^"']+["'];?\s*\n?/gm, "");
+			const m = next.match(/^(\s*(?:(?:\/\*.*?\*\/)\s*|\/\/.*\s*)*)(["']use client["'];?\s*\n)?/s);
+			const i = m ? m[0].length : 0;
+			const final = `${next.slice(0, i)}${target}\n${next.slice(i)}`;
+			if (final !== tsx) await fs.writeFile(tsx_path, tsx = final);
+		}
 	}
 
 	let root;
@@ -263,7 +265,7 @@ async function main() {
 							console.warn(`[RENAME] Multiple orphan .module.css in ${dir}; skipping:\n` +
 								orphans.map(p => `- ${path.basename(p)}`).join("\n"));
 						}
-					}, 50); // Decreased timeout to run before sync_file
+					}, 50);
 				}
 			}
 
@@ -273,7 +275,7 @@ async function main() {
 				debouncers.delete(full_path);
 				if (is_tsx) sync_file(full_path).catch(() => { });
 				else if (FLAGS.sort) format_css_only(full_path).catch(() => { });
-			}, 150)); // Increased timeout to run after rename
+			}, 150));
 		});
 	}
 }
