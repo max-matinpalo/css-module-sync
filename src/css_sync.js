@@ -214,14 +214,51 @@ async function main() {
 	await run_scan();
 	if (FLAGS.watch) {
 		const debouncers = new Map();
+		let cache = new Set();
+		const refresh_cache = async () => {
+			const files = await fs.readdir(TARGET_DIR, { recursive: true });
+			cache = new Set(files.map(f => path.resolve(TARGET_DIR, f)));
+		};
+		await refresh_cache();
+
 		console.log("Watching for changes...");
-		watch(TARGET_DIR, { recursive: true }, (_, filename) => {
+		watch(TARGET_DIR, { recursive: true }, async (event, filename) => {
 			if (!filename) return;
-			const name = filename.toString();
-			const is_tsx = /\.(jsx|tsx)$/.test(name);
-			const is_css = /\.css$/.test(name);
-			if (!is_tsx && !is_css) return;
-			const full_path = path.resolve(TARGET_DIR, name);
+			const full_path = path.resolve(TARGET_DIR, filename.toString());
+			const exists = existsSync(full_path);
+			const is_tsx = /\.(jsx|tsx)$/.test(full_path);
+
+			if (event === "rename") {
+				const was_cached = cache.has(full_path);
+				if (!exists) setTimeout(() => { if (!existsSync(full_path)) cache.delete(full_path); }, 100);
+				else {
+					cache.add(full_path);
+					if (is_tsx && FLAGS.gen && !was_cached) setTimeout(async () => {
+						const dir = path.dirname(full_path);
+						const name = path.basename(full_path, path.extname(full_path));
+						const orphans = Array.from(cache).filter(p => {
+							if (!p.endsWith(".module.css") || path.dirname(p) !== dir || !existsSync(p)) return false;
+							const base = path.basename(p, ".module.css");
+							return !existsSync(path.join(dir, `${base}.tsx`)) && !existsSync(path.join(dir, `${base}.jsx`));
+						});
+						if (orphans.length === 1) {
+							const orphan = orphans[0];
+							const next_css = path.join(dir, `${name}.module.css`);
+							if (!existsSync(next_css)) {
+								await fs.rename(orphan, next_css);
+								cache.delete(orphan);
+								cache.add(next_css);
+								console.log(`Renamed: ${path.basename(orphan)} -> ${path.basename(next_css)}`);
+							}
+						} else if (orphans.length > 1) {
+							console.warn(`[RENAME] Multiple orphan .module.css in ${dir}; skipping:\n` +
+								orphans.map(p => `- ${path.basename(p)}`).join("\n"));
+						}
+					}, 150);
+				}
+			}
+
+			if (!is_tsx && !/\.css$/.test(full_path)) return;
 			if (debouncers.has(full_path)) clearTimeout(debouncers.get(full_path));
 			debouncers.set(full_path, setTimeout(() => {
 				debouncers.delete(full_path);
