@@ -263,7 +263,7 @@ async function main() {
 							console.warn(`[RENAME] Multiple orphan .module.css in ${dir}; skipping:\n` +
 								orphans.map(p => `- ${path.basename(p)}`).join("\n"));
 						}
-					}, 150);
+					}, 50); // Decreased timeout to run before sync_file
 				}
 			}
 
@@ -273,7 +273,7 @@ async function main() {
 				debouncers.delete(full_path);
 				if (is_tsx) sync_file(full_path).catch(() => { });
 				else if (FLAGS.sort) format_css_only(full_path).catch(() => { });
-			}, 100));
+			}, 150)); // Increased timeout to run after rename
 		});
 	}
 }
